@@ -75,6 +75,17 @@ impl Convert for ConvertService {
             comp.start_compress();
 
             // TODO: Speed up this loop
+
+            /*
+            mozjpeg example uses the following code:
+
+                let pixels = vec![0; width * height * 3];
+                assert!(comp.write_scanlines(&pixels[..]));
+
+            building up on this we can thread-parallelize the conversion by setting
+            individual scanlines on different threads. - same goes for multiple frames.
+            */
+
             let mut bytes = Vec::with_capacity(width as usize * 3);
             for y in 0..height {
                 bytes.clear();
