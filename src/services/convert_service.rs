@@ -15,9 +15,10 @@ impl Convert for ConvertService {
         // TODO: Add magic byte check - the first 12 are important? (see https://github.com/strukturag/libheif/blob/master/examples/heif_convert.cc)
 
         // TODO: Encoding of JPEG and PNG files is implemented e.g. at https://github.com/strukturag/libheif/blob/master/examples/heif_convert.cc
-        // TODO: ... or here: https://lib.rs/crates/libheif
 
-        let bytes = request.into_inner().heif;
+        let request = request.into_inner();
+        let bytes = request.heif;
+        let quality = request.quality;
 
         std::panic::catch_unwind(|| {
 
@@ -37,7 +38,7 @@ impl Convert for ConvertService {
                 return Err(Status::invalid_argument("Input image has undefined bit-depth"))
             }
 
-            let color_space = libheif_rs::ColorSpace::YCbCr(libheif_rs::Chroma::C422);
+            let color_space = libheif_rs::ColorSpace::YCbCr(libheif_rs::Chroma::C420);
             let has_exif = handle.number_of_metadata_blocks("Exif") > 0;
             let ignore_transformations = !has_exif;
             let img = match handle.decode(color_space, ignore_transformations) {
@@ -55,6 +56,7 @@ impl Convert for ConvertService {
                 Err(e) => return Err(Status::internal(e.message)),
             };
 
+            // TODO: What happens in presence of non-premultiplied alpha? The alpha'd values might contain garbage.
             let planes = img.planes();
             let plane_y = planes.y.unwrap();
             let plane_cb = planes.cb.unwrap();
@@ -66,18 +68,25 @@ impl Convert for ConvertService {
 
             let mut comp = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_YCbCr);
             comp.set_size(width as _, height as _);
-            comp.set_mem_dest(); // TODO: Write to disk directly?
+            comp.set_mem_dest(); // TODO: Write to disk directly? Only if file is large?
+            comp.set_optimize_coding(true);
+            comp.set_quality(quality as _);
+            comp.set_scan_optimization_mode(mozjpeg::ScanMode::AllComponentsTogether);
             comp.start_compress();
 
-            for y in 0..handle.height() {
-                let mut bytes = Vec::with_capacity((handle.width() as usize) * 3); // TODO: Reuse the byte array across loop iterations
-                for x in 0..(handle.width() as usize) {
-                    let offset_y = (y * stride_y) as usize;
+            // TODO: Speed up this loop
+            let mut bytes = Vec::with_capacity(width as usize * 3);
+            for y in 0..height {
+                bytes.clear();
+
+                let offset_y = (y * stride_y) as usize;
+                let offset_u = ((y / 2) * stride_u) as usize;
+                let offset_v = ((y / 2) * stride_v) as usize;
+
+                for x in 0..(width as usize) {
                     bytes.push(bytes_y[offset_y + x]);
-                    let offset_u = ((y / 2) * stride_u) as usize;
-                    bytes.push(bytes_u[offset_u + x / 2]);
-                    let offset_v = ((y / 2) * stride_v) as usize;
-                    bytes.push(bytes_v[offset_v + x / 2]);
+                    bytes.push(bytes_u[offset_u + (x / 2)]);
+                    bytes.push(bytes_v[offset_v + (x / 2)]);
                 }
                 comp.write_scanlines(&bytes);
             }

@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let convert_request = tonic::Request::new(ConvertJpegRequest {
         heif: contents,
-        quality: 90
+        quality: 65
     });
     let convert_response = convert_client.convert_jpeg(convert_request).await?;
     println!("RESPONSE={:?}", convert_response);
