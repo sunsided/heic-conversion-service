@@ -13,6 +13,9 @@ impl Convert for ConvertService {
     ) -> Result<Response<ConvertJpegResponse>, Status> {
         println!("Got a request: {:?}", request);
 
+        // TODO: Encoding of JPEG and PNG files is implemented e.g. at https://github.com/strukturag/libheif/blob/master/examples/heif_convert.cc
+        // TODO: ... or here: https://lib.rs/crates/libheif
+
         let reply = ConvertJpegResponse {
             jpeg: vec![0]
             // message: format!("Hello {}!", request.into_inner().name).into(),

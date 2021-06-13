@@ -48,7 +48,7 @@ impl Info for InfoService {
 }
 
 impl InfoService {
-    fn get_image_info(handle: ImageHandle) -> ImageInfo {
+    fn get_image_info(handle: &ImageHandle) -> ImageInfo {
         let mut thumbnail_image_ids = vec![0u32; handle.number_of_thumbnails()];
         let num_thumbnails = handle.thumbnail_ids(&mut thumbnail_image_ids);
         assert_eq!(num_thumbnails, handle.number_of_thumbnails());
@@ -79,43 +79,78 @@ impl InfoService {
         }
     }
 
-    fn get_thumbnail_image_info(image_id: u32, handle: ImageHandle) -> ThumbnailImageInfo {
+    fn get_thumbnail_image_info(image_id: u32, handle: &ImageHandle) -> ThumbnailImageInfo {
         ThumbnailImageInfo {
             image_id,
             info: InfoService::get_image_info(handle)
         }
     }
 
-    fn get_depth_image_info(image_id: u32, handle: ImageHandle) -> DepthImageInfo {
+    fn get_depth_image_info(image_id: u32, handle: &ImageHandle) -> DepthImageInfo {
         DepthImageInfo {
             image_id,
             info: InfoService::get_image_info(handle)
         }
     }
 
-    fn get_top_level_image_info(image_id: u32, handle: ImageHandle, ctx: &HeifContext) -> TopLevelImageInfo {
+    fn get_thumbnail_image_infos(handle: &ImageHandle, ctx: &HeifContext) -> Result<Vec<ThumbnailImageInfo>, libheif_rs::HeifError> {
         let mut thumbnail_image_ids = vec![0u32; handle.number_of_thumbnails()];
         let num_thumbnails = handle.thumbnail_ids(&mut thumbnail_image_ids);
         assert_eq!(num_thumbnails, handle.number_of_thumbnails());
 
-        let mut depth_image_ids = vec![0u32; if handle.number_of_depth_images() > 0 { handle.number_of_depth_images() as usize } else { 0 }];
-        if depth_image_ids.len() > 0 {
-            let depth_image_count = handle.depth_image_ids(&mut depth_image_ids);
-            assert_eq!(depth_image_count, handle.number_of_depth_images() as usize);
+        let mut infos = Vec::<ThumbnailImageInfo>::with_capacity(num_thumbnails);
+        for id in thumbnail_image_ids {
+            let handle = ctx.image_handle(id)?;
+            let info = InfoService::get_thumbnail_image_info(id, &handle);
+            infos.push(info);
         }
+
+        return Ok(infos);
+    }
+
+    fn get_depth_image_infos(handle: &ImageHandle, ctx: &HeifContext) -> Result<Vec<DepthImageInfo>, libheif_rs::HeifError> {
+        let num_depth_images = if handle.number_of_depth_images() > 0 { handle.number_of_depth_images() as usize } else { 0 };
+        if num_depth_images <= 0 {
+            return Ok(Vec::with_capacity(0));
+        }
+
+        let mut depth_image_ids = vec![0u32; num_depth_images];
+        let depth_image_count = handle.depth_image_ids(&mut depth_image_ids);
+        assert_eq!(depth_image_count, num_depth_images);
+
+        let mut infos = Vec::<DepthImageInfo>::with_capacity(num_depth_images);
+        for id in depth_image_ids {
+            let handle = ctx.image_handle(id)?;
+            let info = InfoService::get_depth_image_info(id, &handle);
+            infos.push(info);
+        }
+
+        return Ok(infos);
+    }
+
+    fn get_top_level_image_info(image_id: u32, handle: ImageHandle, ctx: &HeifContext) -> TopLevelImageInfo {
+        let depths = match InfoService::get_depth_image_infos(&handle, ctx) {
+            Ok(depths) => depths,
+            Err(e) => {
+                // TODO: log error
+                Vec::with_capacity(0)
+            }
+        };
+
+        let thumbnails = match InfoService::get_thumbnail_image_infos(&handle, ctx) {
+            Ok(depths) => depths,
+            Err(e) => {
+                // TODO: log error
+                Vec::with_capacity(0)
+            }
+        };
 
         TopLevelImageInfo {
             image_id,
             is_primary: handle.is_primary(),
-            info: InfoService::get_image_info(handle),
-            depths: depth_image_ids.into_iter().enumerate()
-                .map(|(i, id)| (id, ctx.image_handle(id).unwrap()))
-                .map(|(id, handle)| InfoService::get_depth_image_info(id, handle))
-                .collect(),
-            thumbnails: thumbnail_image_ids.into_iter().enumerate()
-                .map(|(i, id)| (id, ctx.image_handle(id).unwrap()))
-                .map(|(id, handle)| InfoService::get_thumbnail_image_info(id, handle))
-                .collect(),
+            info: InfoService::get_image_info(&handle),
+            depths,
+            thumbnails,
         }
     }
 }
