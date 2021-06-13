@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package heif_api;
+
+// import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+service Convert {
+  rpc ConvertJpeg (ConvertJpegRequest) returns (ConvertJpegResponse);
+}
+
+message ConvertJpegRequest {
+  // The HEIF image.
+  bytes heif = 1;
+
+  // The target JPEG quality.
+  int32 quality = 2;
+
+  // TODO: EXIF
+  // TODO: Optimization
+}
+
+message ConvertJpegResponse {
+  // The JPEG image.
+  bytes jpeg = 1;
+}
