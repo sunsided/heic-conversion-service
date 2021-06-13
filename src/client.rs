@@ -1,10 +1,12 @@
 #[macro_use] extern crate log;
 use dotenv::dotenv;
 
+use tokio::fs::File;
 use tonic::{transport::Server, Request, Response, Status};
 
-use heif_api::{ConvertJpegRequest, ConvertJpegResponse};
-use heif_api::convert_client::ConvertClient;
+use heif_api::{GetInfoRequest, GetInfoResponse};
+use heif_api::info_client::InfoClient;
+use tokio::io::AsyncReadExt;
 
 pub mod heif_api {
     tonic::include_proto!("heif_api");
@@ -25,14 +27,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let endpoint = scheme + "://" + &addr;
 
-    let mut client = ConvertClient::connect(endpoint).await?;
+    let mut client = InfoClient::connect(endpoint).await?;
 
-    let request = tonic::Request::new(ConvertJpegRequest {
-        heif: vec![0],
-        quality: 85
+    let mut contents = vec![];
+    //tokio::fs::File::open("./data/test.heic").await?
+    //tokio::fs::File::open("./data/4_chunks-wo_exif.heic").await?
+    tokio::fs::File::open("./data/nokia/overlay_grid_alpha/alpha_1440x960.heic").await?
+        .read_to_end(&mut contents).await?;
+
+    let request = tonic::Request::new(GetInfoRequest {
+        heif: contents
     });
 
-    let response = client.convert_jpeg(request).await?;
+    let response = client.get_info(request).await?;
 
     println!("RESPONSE={:?}", response);
 

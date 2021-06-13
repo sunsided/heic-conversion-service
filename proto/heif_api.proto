@@ -35,6 +35,36 @@ message GetInfoRequest {
 }
 
 message GetInfoResponse {
-  int32 width = 1;
-  int32 height = 2;
+  uint32 num_images = 1;
+  repeated TopLevelImageInfo top_level = 2;
+}
+
+message TopLevelImageInfo {
+  bool is_primary = 1;
+  uint32 image_id = 2;
+  ImageInfo info = 3;
+  repeated DepthImageInfo depths = 4;
+  repeated ThumbnailImageInfo thumbnails = 5;
+}
+
+message DepthImageInfo {
+  uint32 image_id = 1;
+  ImageInfo info = 2;
+}
+
+message ThumbnailImageInfo {
+  uint32 image_id = 1;
+  ImageInfo info = 2;
+}
+
+message ImageInfo {
+  uint32 width = 1;
+  uint32 height = 2;
+  uint32 chroma_bits_per_pixel = 3;
+  uint32 luma_bits_per_pixel = 4;
+  int32 ispe_width = 5;
+  int32 ispe_height = 6;
+  bool has_alpha = 7;
+  bool has_depth = 8;
+  bool is_premultiplied_alpha = 9;
 }

@@ -5,6 +5,8 @@ $ cargo run --bin heif-server
 $ cargo run --bin heif-client
 ```
 
+You can find example HEIF (`.heic`) images at [nokiatech.github.io/heif/examples.html](http://nokiatech.github.io/heif/examples.html).
+
 ## Viewing HEIF images
 
 To view HEIF (`.heic`) images on Ubuntu, you man need a special codec:
