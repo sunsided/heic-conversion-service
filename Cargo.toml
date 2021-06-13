@@ -21,6 +21,8 @@ log = "0.4.14"
 env_logger = "0.8.4"
 dotenv = "0.15.0"
 r2d2 = "0.8.9"
+libheif-rs = "0.15.0"
+tempfile = "3.2.0"
 
 [build-dependencies]
 tonic-build = "0.4.2"

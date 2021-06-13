@@ -1,9 +1,17 @@
-# HEIF conversion API
+# HEIF (`.heic`) conversion API
 
 ```console
 $ cargo run --bin heif-server
 $ cargo run --bin heif-client
 ```
+
+## Viewing HEIF images
+
+To view HEIF (`.heic`) images on Ubuntu, you man need a special codec:
+
+- `sudo apt install heif-thumbailer` - This will allow seeing HEIF image thumbnails in Nautilus.
+- `sudo apt install gpicview heif-gdk-pixbuf` - This will allow opening HEIF images
+ using the `gpicview` image viewer.
 
 ## Local configuration
 
@@ -21,7 +29,7 @@ If you have a gRPC GUI client such as [Bloom RPC] you should be able to send req
 If you use [gRPCurl] then you can simply try sending requests like this:
 
 ```console
-$ grpcurl -plaintext -import-path ./proto -proto convert.proto -d '{"heif": "AA==", "quality": 95}' localhost:50051 heif_api.Convert/ConvertJpeg
+$ grpcurl -plaintext -import-path ./proto -proto heif_api.proto -d '{"heif": "AA==", "quality": 95}' localhost:50051 heif_api.Convert/ConvertJpeg
 ```
 
 [Bloom RPC]: https://github.com/uw-labs/bloomrpc

@@ -9,6 +9,10 @@ service Convert {
   rpc ConvertJpeg (ConvertJpegRequest) returns (ConvertJpegResponse);
 }
 
+service Info {
+  rpc GetInfo (GetInfoRequest) returns (GetInfoResponse);
+}
+
 message ConvertJpegRequest {
   // The HEIF image.
   bytes heif = 1;
@@ -23,4 +27,14 @@ message ConvertJpegRequest {
 message ConvertJpegResponse {
   // The JPEG image.
   bytes jpeg = 1;
+}
+
+message GetInfoRequest {
+  // The HEIF image.
+  bytes heif = 1;
+}
+
+message GetInfoResponse {
+  int32 width = 1;
+  int32 height = 2;
 }
