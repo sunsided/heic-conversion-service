@@ -32,7 +32,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut contents = vec![];
     //tokio::fs::File::open("./data/test.heic").await?
     //tokio::fs::File::open("./data/4_chunks-wo_exif.heic").await?
-    tokio::fs::File::open("./data/nokia/overlay_grid_alpha/alpha_1440x960.heic").await?
+    //tokio::fs::File::open("./data/dpreview/IMG_0115.heic").await?
+    tokio::fs::File::open("./data/test.heic").await?
         .read_to_end(&mut contents).await?;
 
     let request = tonic::Request::new(GetInfoRequest {

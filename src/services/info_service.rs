@@ -1,7 +1,7 @@
 use crate::services::heif_api::info_server::{Info, InfoServer};
 use crate::services::heif_api::{GetInfoRequest, GetInfoResponse};
 use tonic::{Request, Response, Status};
-use libheif_rs::{HeifContext, HeifError, HeifErrorCode, HeifErrorSubCode};
+use libheif_rs::{HeifContext, HeifError, HeifErrorCode, HeifErrorSubCode, ImageHandle};
 use crate::services::image_info::{ImageInfo, TopLevelImageInfo, DepthImageInfo, ThumbnailImageInfo};
 
 #[derive(Debug, Default)]
@@ -30,52 +30,9 @@ impl Info for InfoService {
                 Err(e) => return Err(Status::internal(e.message))
             };
 
-            let cbpp = handle.chroma_bits_per_pixel();
-            let lbpp = handle.luma_bits_per_pixel();
+            let top_level_image_info = InfoService::get_top_level_image_info(top_level_image_id, handle, &ctx);
 
-            let height = handle.height();
-            let width = handle.width();
-
-            let has_alpha = handle.has_alpha_channel();
-            let has_depth = handle.has_depth_image();
-
-            let is_premultiplied_alpha = handle.is_premultiplied_alpha();
-            let is_primary = handle.is_primary();
-
-            // Image spatial extents.
-            // A bit unclear, but ISPE may differ from above width and height
-            // in that the above may be the extents after transformations applied (rotation etc.)
-            // while the ISPE values are the "physical" values.
-            let ispe_height = handle.ispe_height();
-            let ispe_width = handle.ispe_width();
-
-            let mut thumbnail_image_ids = vec![0u32; handle.number_of_thumbnails()];
-            let num_thumbnails = handle.thumbnail_ids(&mut thumbnail_image_ids);
-            assert_eq!(num_thumbnails, handle.number_of_thumbnails());
-
-            let mut depth_image_ids = vec![0u32; if handle.number_of_depth_images() > 0 { handle.number_of_depth_images() as usize} else { 0 }];
-            if depth_image_ids.len() > 0 {
-                let depth_image_count = handle.depth_image_ids(&mut depth_image_ids);
-                assert_eq!(depth_image_count, handle.number_of_depth_images() as usize);
-            }
-
-            infos.push(TopLevelImageInfo {
-                image_id: top_level_image_id,
-                is_primary,
-                info: ImageInfo {
-                    width,
-                    height,
-                    ispe_width,
-                    ispe_height,
-                    chroma_bits_per_pixel: cbpp,
-                    luma_bits_per_pixel: lbpp,
-                    has_alpha,
-                    has_depth,
-                    is_premultiplied_alpha
-                },
-                depths: Vec::with_capacity(0),
-                thumbnails: Vec::with_capacity(0),
-            });
+            infos.push(top_level_image_info);
         }
 
         let reply = GetInfoResponse {
@@ -87,5 +44,78 @@ impl Info for InfoService {
         };
 
         Ok(Response::new(reply)) // Send back our formatted greeting
+    }
+}
+
+impl InfoService {
+    fn get_image_info(handle: ImageHandle) -> ImageInfo {
+        let mut thumbnail_image_ids = vec![0u32; handle.number_of_thumbnails()];
+        let num_thumbnails = handle.thumbnail_ids(&mut thumbnail_image_ids);
+        assert_eq!(num_thumbnails, handle.number_of_thumbnails());
+
+        let mut depth_image_ids = vec![0u32; if handle.number_of_depth_images() > 0 { handle.number_of_depth_images() as usize } else { 0 }];
+        if depth_image_ids.len() > 0 {
+            let depth_image_count = handle.depth_image_ids(&mut depth_image_ids);
+            assert_eq!(depth_image_count, handle.number_of_depth_images() as usize);
+        }
+
+        // Image spatial extents.
+        // A bit unclear, but ISPE may differ from above width and height
+        // in that the above may be the extents after transformations applied (rotation etc.)
+        // while the ISPE values are the "physical" values.
+        let ispe_width = handle.ispe_width();
+        let ispe_height = handle.ispe_height();
+
+        ImageInfo {
+            width: handle.width(),
+            height: handle.height(),
+            ispe_width,
+            ispe_height,
+            chroma_bits_per_pixel: handle.chroma_bits_per_pixel(),
+            luma_bits_per_pixel: handle.luma_bits_per_pixel(),
+            has_alpha: handle.has_alpha_channel(),
+            has_depth: handle.has_depth_image(),
+            is_premultiplied_alpha: handle.is_premultiplied_alpha()
+        }
+    }
+
+    fn get_thumbnail_image_info(image_id: u32, handle: ImageHandle) -> ThumbnailImageInfo {
+        ThumbnailImageInfo {
+            image_id,
+            info: InfoService::get_image_info(handle)
+        }
+    }
+
+    fn get_depth_image_info(image_id: u32, handle: ImageHandle) -> DepthImageInfo {
+        DepthImageInfo {
+            image_id,
+            info: InfoService::get_image_info(handle)
+        }
+    }
+
+    fn get_top_level_image_info(image_id: u32, handle: ImageHandle, ctx: &HeifContext) -> TopLevelImageInfo {
+        let mut thumbnail_image_ids = vec![0u32; handle.number_of_thumbnails()];
+        let num_thumbnails = handle.thumbnail_ids(&mut thumbnail_image_ids);
+        assert_eq!(num_thumbnails, handle.number_of_thumbnails());
+
+        let mut depth_image_ids = vec![0u32; if handle.number_of_depth_images() > 0 { handle.number_of_depth_images() as usize } else { 0 }];
+        if depth_image_ids.len() > 0 {
+            let depth_image_count = handle.depth_image_ids(&mut depth_image_ids);
+            assert_eq!(depth_image_count, handle.number_of_depth_images() as usize);
+        }
+
+        TopLevelImageInfo {
+            image_id,
+            is_primary: handle.is_primary(),
+            info: InfoService::get_image_info(handle),
+            depths: depth_image_ids.into_iter().enumerate()
+                .map(|(i, id)| (id, ctx.image_handle(id).unwrap()))
+                .map(|(id, handle)| InfoService::get_depth_image_info(id, handle))
+                .collect(),
+            thumbnails: thumbnail_image_ids.into_iter().enumerate()
+                .map(|(i, id)| (id, ctx.image_handle(id).unwrap()))
+                .map(|(id, handle)| InfoService::get_thumbnail_image_info(id, handle))
+                .collect(),
+        }
     }
 }
