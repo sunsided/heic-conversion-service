@@ -1,4 +1,4 @@
-use crate::services::heif_api::{convert_server::Convert, ConvertJpegRequest, ConvertJpegResponse};
+use crate::services::heif_api::{convert_server::Convert, ConvertToJpegRequest, ConvertToJpegResponse};
 use crate::jpeg::recode_heif_to_jpeg;
 use tonic::{Request, Response, Status};
 
@@ -7,10 +7,10 @@ pub struct ConvertService {}
 
 #[tonic::async_trait]
 impl Convert for ConvertService {
-    async fn convert_jpeg(
+    async fn convert_to_jpeg(
         &self,
-        request: Request<ConvertJpegRequest>,
-    ) -> Result<Response<ConvertJpegResponse>, Status> {
+        request: Request<ConvertToJpegRequest>,
+    ) -> Result<Response<ConvertToJpegResponse>, Status> {
         // TODO: Add magic byte check - the first 12 are important? (see https://github.com/strukturag/libheif/blob/master/examples/heif_convert.cc)
 
         // TODO: Encoding of JPEG and PNG files is implemented e.g. at https://github.com/strukturag/libheif/blob/master/examples/heif_convert.cc
@@ -23,7 +23,7 @@ impl Convert for ConvertService {
 
         // TODO: Repeat for depth channel
 
-        let reply = ConvertJpegResponse {
+        let reply = ConvertToJpegResponse {
             jpeg: vec![0]
             // message: format!("Hello {}!", request.into_inner().name).into(),
             // We must use .into_inner() as the fields of gRPC requests and responses are private

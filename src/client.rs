@@ -4,7 +4,7 @@ use dotenv::dotenv;
 use tokio::fs::File;
 use tonic::{transport::Server, Request, Response, Status};
 
-use heif_api::{GetInfoRequest, GetInfoResponse, ConvertJpegRequest, ConvertJpegResponse};
+use heif_api::{GetInfoRequest, GetInfoResponse, ConvertToJpegRequest, ConvertToJpegResponse};
 use heif_api::info_client::InfoClient;
 use heif_api::convert_client::ConvertClient;
 use tokio::io::AsyncReadExt;
@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let info_response = info_client.get_info(info_request).await?;
     println!("RESPONSE={:?}", info_response);
 
-    let convert_request = tonic::Request::new(ConvertJpegRequest {
+    let convert_request = tonic::Request::new(ConvertToJpegRequest {
         heif: contents,
         quality: 65
     });
