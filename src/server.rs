@@ -1,5 +1,6 @@
 mod heif;
 mod services;
+mod jpeg;
 
 #[macro_use] extern crate log;
 use dotenv::dotenv;
