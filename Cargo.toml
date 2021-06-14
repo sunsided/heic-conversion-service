@@ -24,6 +24,7 @@ r2d2 = "0.8.9"
 libheif-rs = "0.15.0"
 tempfile = "3.2.0"
 mozjpeg = "0.9.0"
+num = "0.4.0"
 
 [build-dependencies]
 tonic-build = "0.4.2"

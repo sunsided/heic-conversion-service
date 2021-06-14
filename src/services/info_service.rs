@@ -1,7 +1,6 @@
-use crate::services::heif_api::info_server::{Info, InfoServer};
-use crate::services::heif_api::{GetInfoRequest, GetInfoResponse};
+use crate::services::heif_api::{info_server::Info, GetInfoRequest, GetInfoResponse};
 use tonic::{Request, Response, Status};
-use libheif_rs::{HeifContext, HeifError, HeifErrorCode, HeifErrorSubCode, ImageHandle};
+use libheif_rs::{HeifContext, ImageHandle};
 use crate::services::image_info::{ImageInfo, TopLevelImageInfo, DepthImageInfo, ThumbnailImageInfo};
 
 #[derive(Debug, Default)]
@@ -131,7 +130,7 @@ impl InfoService {
     fn get_top_level_image_info(image_id: u32, handle: ImageHandle, ctx: &HeifContext) -> TopLevelImageInfo {
         let depths = match InfoService::get_depth_image_infos(&handle, ctx) {
             Ok(depths) => depths,
-            Err(e) => {
+            Err(_) => {
                 // TODO: log error
                 Vec::with_capacity(0)
             }
@@ -139,7 +138,7 @@ impl InfoService {
 
         let thumbnails = match InfoService::get_thumbnail_image_infos(&handle, ctx) {
             Ok(depths) => depths,
-            Err(e) => {
+            Err(_) => {
                 // TODO: log error
                 Vec::with_capacity(0)
             }
