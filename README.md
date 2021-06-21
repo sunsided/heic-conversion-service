@@ -7,11 +7,28 @@ and default installed to `/usr/local/lib`, ensure that it is loaded before any s
 $ export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 ```
 
+To see log output, specify the `RUST_LOG` environment variable, e.g.
+
+```console
+$ export RUST_LOG=info,heif_server=debug
+```
+
 Then run
 
 ```console
 $ cargo run --bin heif-server
 $ cargo run --bin heif-client
+```
+
+Example output:
+
+```
+Jun 22 01:44:40.491  INFO heif_server: Starting HEIF conversion server
+Jun 22 01:44:46.775  INFO heif_server::services::convert_service: Handling HEIC (2.25 MB) -> JPEG conversion request (q=65%)
+Jun 22 01:44:47.867 DEBUG heif_server::services::convert_service: Decoding HEIC image took 1s 91ms 321us 761ns
+Jun 22 01:44:47.867 DEBUG heif_server::converter::jpeg_encoder: Encoding 2866 x 3024 x 8bpp image (26 MB raw data)
+Jun 22 01:44:47.944 DEBUG heif_server::services::convert_service: Encoding JPEG image took 77ms 714us 466ns
+Jun 22 01:44:47.944  INFO heif_server::services::convert_service: Finished conversion, produced 1.78 MB JPEG (79.0%) in 1s 169ms 36us 227ns
 ```
 
 You can find example HEIF (`.heic`) images at [nokiatech.github.io/heif/examples.html](http://nokiatech.github.io/heif/examples.html).

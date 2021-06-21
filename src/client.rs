@@ -1,5 +1,3 @@
-#[macro_use]
-extern crate log;
 use dotenv::dotenv;
 
 use tonic::{transport::Server, Request, Response, Status};
@@ -8,6 +6,7 @@ use heif_api::convert_client::ConvertClient;
 use heif_api::info_client::InfoClient;
 use heif_api::{ConvertToJpegRequest, ConvertToJpegResponse, GetInfoRequest, GetInfoResponse};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tracing::info;
 
 pub mod heif_api {
     tonic::include_proto!("heif_api");
@@ -16,7 +15,7 @@ pub mod heif_api {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
-    env_logger::init();
+    tracing_subscriber::fmt::init();
 
     info!("Starting HEIF conversion server");
 

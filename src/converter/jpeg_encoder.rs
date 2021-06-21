@@ -3,8 +3,10 @@ use crate::converter::encoder::{Encoder, ExifMetadata};
 use anyhow::Result;
 use libheif_rs::{Channel, Chroma, ColorSpace, HeifError, Image, ImageHandle, ItemId};
 use mozjpeg::Compress;
+use pretty_bytes::converter::convert as pretty_bytes;
 use std::fs::write;
 use thiserror::Error;
+use tracing::debug;
 
 const DEFAULT_QUALITY: u32 = 90;
 const JPEG_CHROMA: Chroma = Chroma::C420;
@@ -81,6 +83,14 @@ impl Encoder for JpegEncoder {
             Ok(size) => size as usize,
             Err(e) => return Err(JpegEncoderError::InvalidSize(e).into()),
         };
+
+        debug!(
+            "Encoding {width} x {height} x {bpp}bpp image ({bytes} raw data)",
+            width = width,
+            height = height,
+            bpp = bit_depth,
+            bytes = pretty_bytes((width * height * 3 * bit_depth as usize / 8) as _)
+        );
 
         let jpeg_bytes =
             match std::panic::catch_unwind(|| self.compress_mozjpeg(width, height, &image)) {

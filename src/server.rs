@@ -2,16 +2,15 @@ mod converter;
 mod heif;
 mod services;
 
-#[macro_use]
-extern crate log;
 use dotenv::dotenv;
+use tracing::info;
 
 use crate::services::{ConvertServer, ConvertService, InfoServer, InfoService, Server};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
-    env_logger::init();
+    tracing_subscriber::fmt::init();
 
     info!("Starting HEIF conversion server");
 

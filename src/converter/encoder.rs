@@ -1,7 +1,6 @@
 use crate::converter::decoding_options::DecodingOptions;
 use anyhow::Result;
 use libheif_rs::{Chroma, ColorSpace, Image, ImageHandle};
-use tokio::runtime::Handle;
 
 pub trait Encoder {
     fn colorspace(&self, has_alpha: bool) -> ColorSpace;
