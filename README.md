@@ -1,5 +1,14 @@
 # HEIF (`.heic`) conversion API
 
+`libheif.so` is required to be installed. If it is built [from source](https://github.com/strukturag/libheif) 
+and default installed to `/usr/local/lib`, ensure that it is loaded before any system installation by specifying e.g.
+
+```console
+$ export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+```
+
+Then run
+
 ```console
 $ cargo run --bin heif-server
 $ cargo run --bin heif-client
