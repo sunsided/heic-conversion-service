@@ -1,13 +1,12 @@
-#[macro_use] extern crate log;
 use dotenv::dotenv;
 
-use tokio::fs::File;
 use tonic::{transport::Server, Request, Response, Status};
 
-use heif_api::{GetInfoRequest, GetInfoResponse, ConvertJpegRequest, ConvertJpegResponse};
-use heif_api::info_client::InfoClient;
 use heif_api::convert_client::ConvertClient;
-use tokio::io::AsyncReadExt;
+use heif_api::info_client::InfoClient;
+use heif_api::{ConvertToJpegRequest, ConvertToJpegResponse, GetInfoRequest, GetInfoResponse};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tracing::info;
 
 pub mod heif_api {
     tonic::include_proto!("heif_api");
@@ -16,7 +15,7 @@ pub mod heif_api {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
-    env_logger::init();
+    tracing_subscriber::fmt::init();
 
     info!("Starting HEIF conversion server");
 
@@ -35,21 +34,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //tokio::fs::File::open("./data/test.heic").await?
     //tokio::fs::File::open("./data/4_chunks-wo_exif.heic").await?
     //tokio::fs::File::open("./data/dpreview/IMG_0115.heic").await?
-    tokio::fs::File::open("./data/test.heic").await?
-        .read_to_end(&mut contents).await?;
+    tokio::fs::File::open("./data/test.heic")
+        .await?
+        .read_to_end(&mut contents)
+        .await?;
 
     let info_request = tonic::Request::new(GetInfoRequest {
-        heif: contents.clone()
+        heif: contents.clone(),
     });
     let info_response = info_client.get_info(info_request).await?;
     println!("RESPONSE={:?}", info_response);
 
-    let convert_request = tonic::Request::new(ConvertJpegRequest {
+    let convert_request = tonic::Request::new(ConvertToJpegRequest {
         heif: contents,
-        quality: 90
+        quality: 65,
     });
-    let convert_response = convert_client.convert_jpeg(convert_request).await?;
-    println!("RESPONSE={:?}", convert_response);
+    let convert_response = convert_client.convert_to_jpeg(convert_request).await?;
+
+    tokio::fs::File::create("./data/test.out.jpg")
+        .await?
+        .write_all(&mut convert_response.into_inner().jpeg)
+        .await?;
 
     Ok(())
 }

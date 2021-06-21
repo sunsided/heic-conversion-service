@@ -16,13 +16,20 @@ path = "src/client.rs"
 tonic = "0.4.3"
 prost = "0.7.0"
 prost-types = "0.7.0"
-tokio = { version = "1.6.1", features = ["full"] }
-log = "0.4.14"
-env_logger = "0.8.4"
+tokio = { version = "1.7.0", features = ["full"] }
 dotenv = "0.15.0"
 r2d2 = "0.8.9"
 libheif-rs = "0.15.0"
 tempfile = "3.2.0"
+mozjpeg = "0.9.0"
+num = "0.4.0"
+anyhow = "1.0.41"
+thiserror = "1.0.25"
+tracing = "0.1.26"
+tracing-futures = "0.2.5"
+tracing-subscriber = "0.2.18"
+pretty-bytes = "0.2.2"
+humantime = "2.1.0"
 
 [build-dependencies]
 tonic-build = "0.4.2"

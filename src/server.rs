@@ -1,20 +1,23 @@
+mod converter;
 mod heif;
 mod services;
 
-#[macro_use] extern crate log;
 use dotenv::dotenv;
+use tracing::info;
 
-use crate::services::{Server, ConvertService, ConvertServer, InfoService, InfoServer};
+use crate::services::{ConvertServer, ConvertService, InfoServer, InfoService, Server};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
-    env_logger::init();
+    tracing_subscriber::fmt::init();
 
     info!("Starting HEIF conversion server");
 
     let default_addr = String::from("127.0.0.1:50051");
-    let addr = std::env::var("GRPC_SERVER_ADDRESS").unwrap_or(default_addr).parse()?;
+    let addr = std::env::var("GRPC_SERVER_ADDRESS")
+        .unwrap_or(default_addr)
+        .parse()?;
 
     let convert = ConvertService::default();
     let info = InfoService::default();

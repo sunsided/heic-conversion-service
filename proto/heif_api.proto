@@ -6,14 +6,14 @@ package heif_api;
 import "google/protobuf/empty.proto";
 
 service Convert {
-  rpc ConvertJpeg (ConvertJpegRequest) returns (ConvertJpegResponse);
+  rpc ConvertToJpeg (ConvertToJpegRequest) returns (ConvertToJpegResponse);
 }
 
 service Info {
   rpc GetInfo (GetInfoRequest) returns (GetInfoResponse);
 }
 
-message ConvertJpegRequest {
+message ConvertToJpegRequest {
   // The HEIF image.
   bytes heif = 1;
 
@@ -24,7 +24,7 @@ message ConvertJpegRequest {
   // TODO: Optimization
 }
 
-message ConvertJpegResponse {
+message ConvertToJpegResponse {
   // The JPEG image.
   bytes jpeg = 1;
 }
