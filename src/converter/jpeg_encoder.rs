@@ -117,15 +117,15 @@ impl ExifMetadata for JpegEncoder {
     }
 
     fn get_exif_metadata(&self, handle: &ImageHandle) -> Result<Option<Vec<u8>>> {
-        let mut item_ids: [ItemId; 1] = [ItemId::default()];
-        let count = handle.metadata_block_ids("Exif", &mut item_ids);
+        let mut meta_ids: Vec<ItemId> = vec![ItemId::default(); 1];
+        let count = handle.metadata_block_ids("Exif", &mut meta_ids);
         for _ in 0..count {
-            let size = handle.metadata_size(item_ids[0]);
+            let size = handle.metadata_size(meta_ids[0]);
             if size == 0 {
                 continue;
             }
 
-            let result = handle.metadata(item_ids[0])?;
+            let result = handle.metadata(meta_ids[0])?;
             return Ok(Some(result));
         }
 

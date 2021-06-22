@@ -1,8 +1,8 @@
-use crate::converter::{DecodingOptions, Encoder, JpegEncoder};
+use crate::converter::{DecodingOptions, Encoder, ExifMetadata, JpegEncoder};
 use crate::services::heif_api::{
     convert_server::Convert, ConvertToJpegRequest, ConvertToJpegResponse,
 };
-use libheif_rs::HeifContext;
+use libheif_rs::{HeifContext, ImageHandle};
 use pretty_bytes::converter::convert as pretty_bytes;
 use tokio::time::Instant;
 use tonic::{Request, Response, Status};
@@ -63,6 +63,8 @@ impl Convert for ConvertService {
             return Err(Status::internal("Input image has undefined bit-depth"));
         }
 
+        self.parse_exif(&handle, &encoder)?;
+
         let image = match handle.decode(
             encoder.colorspace(has_alpha),
             decoding_options.ignore_transformations,
@@ -104,5 +106,33 @@ impl Convert for ConvertService {
         let reply = ConvertToJpegResponse { jpeg: bytes };
 
         Ok(Response::new(reply)) // Send back our formatted greeting
+    }
+}
+
+impl ConvertService {
+    fn parse_exif(&self, handle: &ImageHandle, encoder: &JpegEncoder) -> Result<(), Status> {
+        let exifreader = exif::Reader::new();
+
+        let raw = match encoder.get_exif_metadata(&handle) {
+            Ok(Some(vec)) => vec,
+            Ok(None) => return Ok(()),
+            Err(_e) => return Err(Status::internal("Unable to read EXIF from handle")),
+        };
+
+        let exif = match exifreader.read_raw(raw) {
+            Ok(exif) => exif,
+            Err(e) => {
+                return Err(Status::internal(format!(
+                    "Failed reading EXIF data: {}",
+                    e.to_string()
+                )));
+            }
+        };
+
+        for field in exif.fields() {
+            debug!(exif = ?field, "Parsed EXIF field")
+        }
+
+        Ok(())
     }
 }
