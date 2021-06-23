@@ -6,14 +6,14 @@ use libheif_rs::{HeifContext, ImageHandle};
 use pretty_bytes::converter::convert as pretty_bytes;
 use tokio::time::Instant;
 use tonic::{Request, Response, Status};
-use tracing::{debug, info, instrument};
+use tracing::{debug, info, instrument, trace};
 
 #[derive(Debug, Default)]
 pub struct ConvertService {}
 
 #[tonic::async_trait]
 impl Convert for ConvertService {
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip(self, request))]
     async fn convert_to_jpeg(
         &self,
         request: Request<ConvertToJpegRequest>,
@@ -58,12 +58,14 @@ impl Convert for ConvertService {
         let encoder = JpegEncoder::new(request.quality);
         encoder.update_decoding_options(&handle, &mut decoding_options);
 
+        // TODO: Support XMP
+        // TODO: Support MPEG-7
+        self.parse_exif(&handle, &encoder)?;
+
         let bit_depth = handle.luma_bits_per_pixel();
         if bit_depth == 0 {
             return Err(Status::internal("Input image has undefined bit-depth"));
         }
-
-        self.parse_exif(&handle, &encoder)?;
 
         let image = match handle.decode(
             encoder.colorspace(has_alpha),
@@ -113,13 +115,13 @@ impl ConvertService {
     fn parse_exif(&self, handle: &ImageHandle, encoder: &JpegEncoder) -> Result<(), Status> {
         let exifreader = exif::Reader::new();
 
-        let raw = match encoder.get_exif_metadata(&handle) {
-            Ok(Some(vec)) => vec,
+        let exif_data_block = match encoder.get_exif_metadata(&handle) {
+            Ok(Some(block)) => block,
             Ok(None) => return Ok(()),
             Err(_e) => return Err(Status::internal("Unable to read EXIF from handle")),
         };
 
-        let exif = match exifreader.read_raw(raw) {
+        let exif = match exifreader.read_raw(exif_data_block.exif_payload) {
             Ok(exif) => exif,
             Err(e) => {
                 return Err(Status::internal(format!(
@@ -130,7 +132,12 @@ impl ConvertService {
         };
 
         for field in exif.fields() {
-            debug!(exif = ?field, "Parsed EXIF field")
+            trace!(
+                "Parsed EXIF field {ifd_num_index}/{tag}: {value}",
+                ifd_num_index = field.ifd_num.index(),
+                tag = field.tag,
+                value = field.display_value().with_unit(&exif)
+            );
         }
 
         Ok(())

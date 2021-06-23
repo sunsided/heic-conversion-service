@@ -1,4 +1,5 @@
 use crate::converter::decoding_options::DecodingOptions;
+use crate::exif::ExifDataBlock;
 use anyhow::Result;
 use libheif_rs::{Chroma, ColorSpace, Image, ImageHandle};
 
@@ -12,5 +13,5 @@ pub trait Encoder {
 
 pub trait ExifMetadata {
     fn has_exif_metadata(&self, handle: &ImageHandle) -> bool;
-    fn get_exif_metadata(&self, handle: &ImageHandle) -> Result<Option<Vec<u8>>>;
+    fn get_exif_metadata(&self, handle: &ImageHandle) -> Result<Option<ExifDataBlock>>;
 }

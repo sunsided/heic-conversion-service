@@ -1,5 +1,7 @@
 # HEIF (`.heic`) conversion API
 
+The [libheif decoder demo] can decode HEIF image in the browser.
+
 `libheif.so` is required to be installed. If it is built [from source](https://github.com/strukturag/libheif) 
 and default installed to `/usr/local/lib`, ensure that it is loaded before any system installation by specifying e.g.
 
@@ -60,5 +62,6 @@ If you use [gRPCurl] then you can simply try sending requests like this:
 $ grpcurl -plaintext -import-path ./proto -proto heif_api.proto -d '{"heif": "AA==", "quality": 95}' localhost:50051 heif_api.Convert/ConvertJpeg
 ```
 
+[libheif decoder demo]: https://strukturag.github.io/libheif/
 [Bloom RPC]: https://github.com/uw-labs/bloomrpc
 [gRPCurl]: https://github.com/fullstorydev/grpcurl
