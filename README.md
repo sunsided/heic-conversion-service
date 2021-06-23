@@ -12,7 +12,7 @@ $ export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 To see log output, specify the `RUST_LOG` environment variable, e.g.
 
 ```console
-$ export RUST_LOG=info,heif_server=debug
+$ export RUST_LOG=info,heif_server=trace
 ```
 
 Then run

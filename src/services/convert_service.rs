@@ -58,9 +58,12 @@ impl Convert for ConvertService {
         let encoder = JpegEncoder::new(request.quality);
         encoder.update_decoding_options(&handle, &mut decoding_options);
 
-        // TODO: Support XMP
-        // TODO: Support MPEG-7
-        self.parse_exif(&handle, &encoder)?;
+        // TODO: Add this to the info endpoint.
+        // TODO: Support XMP and MPEG-7
+        self.parse_and_trace_log_exif(&handle, &encoder)?;
+
+        // TODO: Optionally rotate the image.
+        // TODO: Optionally resize the image.
 
         let bit_depth = handle.luma_bits_per_pixel();
         if bit_depth == 0 {
@@ -112,7 +115,11 @@ impl Convert for ConvertService {
 }
 
 impl ConvertService {
-    fn parse_exif(&self, handle: &ImageHandle, encoder: &JpegEncoder) -> Result<(), Status> {
+    fn parse_and_trace_log_exif(
+        &self,
+        handle: &ImageHandle,
+        encoder: &JpegEncoder,
+    ) -> Result<(), Status> {
         let exifreader = exif::Reader::new();
 
         let exif_data_block = match encoder.get_exif_metadata(&handle) {
@@ -121,7 +128,7 @@ impl ConvertService {
             Err(_e) => return Err(Status::internal("Unable to read EXIF from handle")),
         };
 
-        let exif = match exifreader.read_raw(exif_data_block.exif_payload) {
+        let exif = match exifreader.read_raw(exif_data_block.payload) {
             Ok(exif) => exif,
             Err(e) => {
                 return Err(Status::internal(format!(
