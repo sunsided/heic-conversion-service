@@ -1,8 +1,9 @@
 use crate::converter::decoding_options::DecodingOptions;
 use crate::converter::encoder::{Encoder, ExifMetadata};
+use crate::exif::{ExifDataBlock, UNTIMED_EXIF_ITEM_TYPE};
 use anyhow::Result;
 use libheif_rs::{Channel, Chroma, ColorSpace, HeifError, Image, ImageHandle, ItemId};
-use mozjpeg::Compress;
+use mozjpeg::{Compress, Marker};
 use pretty_bytes::converter::convert as pretty_bytes;
 use std::fs::write;
 use thiserror::Error;
@@ -84,16 +85,24 @@ impl Encoder for JpegEncoder {
             Err(e) => return Err(JpegEncoderError::InvalidSize(e).into()),
         };
 
+        let exif = self.get_exif_metadata(&handle)?;
+
+        let metadata_size = match &exif {
+            Some(edb) => edb.payload.len(),
+            _ => 0usize,
+        };
+
         debug!(
-            "Encoding {width} x {height} x {bpp}bpp image ({bytes} raw data)",
+            "Encoding {width} x {height} x {bpp}bpp image ({bytes} raw data + {meta_bytes} metadata)",
             width = width,
             height = height,
             bpp = bit_depth,
-            bytes = pretty_bytes((width * height * 3 * bit_depth as usize / 8) as _)
+            bytes = pretty_bytes((width * height * 3 * bit_depth as usize / 8) as _),
+            meta_bytes = pretty_bytes(metadata_size as _)
         );
 
         let jpeg_bytes =
-            match std::panic::catch_unwind(|| self.compress_mozjpeg(width, height, &image)) {
+            match std::panic::catch_unwind(|| self.compress_mozjpeg(width, height, &image, exif)) {
                 Ok(result) => result?,
                 Err(_e) => return Err(JpegEncoderError::MozJpegPanic.into()),
             };
@@ -111,30 +120,49 @@ impl Encoder for JpegEncoder {
     }
 }
 
+// TODO: Extract into separate struct - it's related to HEIC, not to JPEG.
 impl ExifMetadata for JpegEncoder {
     fn has_exif_metadata(&self, handle: &ImageHandle) -> bool {
-        handle.number_of_metadata_blocks("Exif") > 0
+        handle.number_of_metadata_blocks(UNTIMED_EXIF_ITEM_TYPE) > 0
     }
 
-    fn get_exif_metadata(&self, handle: &ImageHandle) -> Result<Option<Vec<u8>>> {
-        let mut item_ids: [ItemId; 1] = [ItemId::default()];
-        let count = handle.metadata_block_ids("Exif", &mut item_ids);
-        for _ in 0..count {
-            let size = handle.metadata_size(item_ids[0]);
-            if size == 0 {
-                continue;
-            }
+    fn get_exif_metadata(&self, handle: &ImageHandle) -> Result<Option<ExifDataBlock>> {
+        let mut meta_ids: Vec<ItemId> = vec![ItemId::default(); 1];
 
-            let result = handle.metadata(item_ids[0])?;
-            return Ok(Some(result));
+        // NOTE: EXIF metadata can be embedded in HEIF tracks (for image sequences), in which case
+        //       this approach would probably lose it. In that case, extra work is required here.
+        let count = handle.metadata_block_ids(UNTIMED_EXIF_ITEM_TYPE, &mut meta_ids);
+        if count == 0 {
+            return Ok(None);
         }
 
-        return Ok(None);
+        assert_eq!(count, 1);
+
+        let size = handle.metadata_size(meta_ids[0]);
+        if size == 0 {
+            debug!("Found zero-sized Exif metadata block");
+            return Ok(None);
+        }
+
+        let result = handle.metadata(meta_ids[0])?;
+        assert_eq!(result.len(), size);
+        debug!(
+            "Got {exif_block_size} of EXIF data",
+            exif_block_size = pretty_bytes(result.len() as _).to_string()
+        );
+
+        return Ok(Some(ExifDataBlock::new_from_heic(result)?));
     }
 }
 
 impl JpegEncoder {
-    fn compress_mozjpeg(&self, width: usize, height: usize, image: &Image) -> Result<Vec<u8>> {
+    fn compress_mozjpeg(
+        &self,
+        width: usize,
+        height: usize,
+        image: &Image,
+        exif: Option<ExifDataBlock>,
+    ) -> Result<Vec<u8>> {
         let planes = image.planes();
         let plane_y = planes.y.unwrap();
         let plane_cb = planes.cb.unwrap();
@@ -144,17 +172,21 @@ impl JpegEncoder {
         let (bytes_u, stride_u) = (plane_cb.data, plane_cb.stride as usize);
         let (bytes_v, stride_v) = (plane_cr.data, plane_cr.stride as usize);
 
-        // TODO: Exif - write_marker()
         // TODO: Add JPEG comment describing this library or service (jpeg_write_marker() with JPEG_COM)
 
         let mut comp = Compress::new(mozjpeg::ColorSpace::JCS_YCbCr);
+        comp.set_scan_optimization_mode(mozjpeg::ScanMode::AllComponentsTogether);
         comp.set_size(width, height);
         comp.set_fastest_defaults();
         comp.set_mem_dest(); // TODO: Write to disk directly? Only if file is large?
         comp.set_optimize_coding(true);
         comp.set_quality(self.quality as _);
-        comp.set_scan_optimization_mode(mozjpeg::ScanMode::AllComponentsTogether);
         comp.start_compress();
+
+        // TODO: Write XMP, MPEG-7 etc.
+        if let Some(exif) = exif {
+            comp.write_marker(Marker::APP(1), &exif.to_app1_compatible_block());
+        }
 
         // TODO: Check set_raw_data_in() and write_raw_data() since input data is already YCbCr
 

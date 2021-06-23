@@ -1,4 +1,5 @@
 mod converter;
+mod exif;
 mod heif;
 mod services;
 

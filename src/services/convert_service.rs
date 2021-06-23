@@ -1,19 +1,19 @@
-use crate::converter::{DecodingOptions, Encoder, JpegEncoder};
+use crate::converter::{DecodingOptions, Encoder, ExifMetadata, JpegEncoder};
 use crate::services::heif_api::{
     convert_server::Convert, ConvertToJpegRequest, ConvertToJpegResponse,
 };
-use libheif_rs::HeifContext;
+use libheif_rs::{HeifContext, ImageHandle};
 use pretty_bytes::converter::convert as pretty_bytes;
 use tokio::time::Instant;
 use tonic::{Request, Response, Status};
-use tracing::{debug, info, instrument};
+use tracing::{debug, info, instrument, trace};
 
 #[derive(Debug, Default)]
 pub struct ConvertService {}
 
 #[tonic::async_trait]
 impl Convert for ConvertService {
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip(self, request))]
     async fn convert_to_jpeg(
         &self,
         request: Request<ConvertToJpegRequest>,
@@ -57,6 +57,13 @@ impl Convert for ConvertService {
 
         let encoder = JpegEncoder::new(request.quality);
         encoder.update_decoding_options(&handle, &mut decoding_options);
+
+        // TODO: Add this to the info endpoint.
+        // TODO: Support XMP and MPEG-7
+        self.parse_and_trace_log_exif(&handle, &encoder)?;
+
+        // TODO: Optionally rotate the image.
+        // TODO: Optionally resize the image.
 
         let bit_depth = handle.luma_bits_per_pixel();
         if bit_depth == 0 {
@@ -104,5 +111,42 @@ impl Convert for ConvertService {
         let reply = ConvertToJpegResponse { jpeg: bytes };
 
         Ok(Response::new(reply)) // Send back our formatted greeting
+    }
+}
+
+impl ConvertService {
+    fn parse_and_trace_log_exif(
+        &self,
+        handle: &ImageHandle,
+        encoder: &JpegEncoder,
+    ) -> Result<(), Status> {
+        let exifreader = exif::Reader::new();
+
+        let exif_data_block = match encoder.get_exif_metadata(&handle) {
+            Ok(Some(block)) => block,
+            Ok(None) => return Ok(()),
+            Err(_e) => return Err(Status::internal("Unable to read EXIF from handle")),
+        };
+
+        let exif = match exifreader.read_raw(exif_data_block.payload) {
+            Ok(exif) => exif,
+            Err(e) => {
+                return Err(Status::internal(format!(
+                    "Failed reading EXIF data: {}",
+                    e.to_string()
+                )));
+            }
+        };
+
+        for field in exif.fields() {
+            trace!(
+                "Parsed EXIF field {ifd_num_index}/{tag}: {value}",
+                ifd_num_index = field.ifd_num.index(),
+                tag = field.tag,
+                value = field.display_value().with_unit(&exif)
+            );
+        }
+
+        Ok(())
     }
 }
