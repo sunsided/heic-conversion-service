@@ -9,6 +9,12 @@ and default installed to `/usr/local/lib`, ensure that it is loaded before any s
 $ export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 ```
 
+To optimize builds for the local CPU, use the `RUSTFLAGS` environment: 
+
+```console
+$ export RUSTFLAGS="-C target-cpu=native"
+```
+
 To see log output, specify the `RUST_LOG` environment variable, e.g.
 
 ```console
