@@ -1,8 +1,8 @@
 use crate::converter::decoding_options::DecodingOptions;
 use crate::converter::encoder::{Encoder, ExifMetadata};
-use crate::exif::{ExifDataBlock, UNTIMED_EXIF_ITEM_TYPE};
+use crate::exif::{ExifDataBlock, HeifExif};
 use anyhow::Result;
-use libheif_rs::{Channel, Chroma, ColorSpace, HeifError, Image, ImageHandle, ItemId};
+use libheif_rs::{Channel, Chroma, ColorSpace, HeifError, Image, ImageHandle};
 use mozjpeg::{Compress, Marker};
 use pretty_bytes::converter::convert as pretty_bytes;
 use std::fs::write;
@@ -58,14 +58,20 @@ impl Encoder for JpegEncoder {
         &self,
         handle: &ImageHandle,
         decoding_options: &mut DecodingOptions,
+        heif_exif: &HeifExif,
     ) {
-        if self.has_exif_metadata(handle) {
+        if heif_exif.has_exif_metadata(handle) {
             decoding_options.set_ignore_transformations(true);
         }
         decoding_options.set_convert_hdr_to_8bit(true);
     }
 
-    fn encode_to_bytes(&self, handle: &ImageHandle, image: &Image) -> Result<Vec<u8>> {
+    fn encode_to_bytes(
+        &self,
+        handle: &ImageHandle,
+        image: &Image,
+        heif_exif: &HeifExif,
+    ) -> Result<Vec<u8>> {
         assert!(image.color_space().is_some());
         assert_eq!(image.color_space().unwrap(), JPEG_COLORSPACE);
 
@@ -85,7 +91,7 @@ impl Encoder for JpegEncoder {
             Err(e) => return Err(JpegEncoderError::InvalidSize(e).into()),
         };
 
-        let exif = self.get_exif_metadata(&handle)?;
+        let exif = heif_exif.get_exif_metadata(&handle)?;
 
         let metadata_size = match &exif {
             Some(edb) => edb.payload.len(),
@@ -110,48 +116,19 @@ impl Encoder for JpegEncoder {
         Ok(jpeg_bytes)
     }
 
-    fn encode_to_file(&self, handle: &ImageHandle, image: &Image, filename: String) -> Result<()> {
+    fn encode_to_file(
+        &self,
+        handle: &ImageHandle,
+        image: &Image,
+        filename: String,
+        heif_exif: &HeifExif,
+    ) -> Result<()> {
         // TODO: async possible?
-        let bytes = self.encode_to_bytes(handle, image)?;
+        let bytes = self.encode_to_bytes(handle, image, heif_exif)?;
         return match write(filename.as_str(), &bytes) {
             Ok(_) => Ok(()),
             Err(e) => Err(JpegEncoderError::FileWrite(e).into()),
         };
-    }
-}
-
-// TODO: Extract into separate struct - it's related to HEIC, not to JPEG.
-impl ExifMetadata for JpegEncoder {
-    fn has_exif_metadata(&self, handle: &ImageHandle) -> bool {
-        handle.number_of_metadata_blocks(UNTIMED_EXIF_ITEM_TYPE) > 0
-    }
-
-    fn get_exif_metadata(&self, handle: &ImageHandle) -> Result<Option<ExifDataBlock>> {
-        let mut meta_ids: Vec<ItemId> = vec![ItemId::default(); 1];
-
-        // NOTE: EXIF metadata can be embedded in HEIF tracks (for image sequences), in which case
-        //       this approach would probably lose it. In that case, extra work is required here.
-        let count = handle.metadata_block_ids(UNTIMED_EXIF_ITEM_TYPE, &mut meta_ids);
-        if count == 0 {
-            return Ok(None);
-        }
-
-        assert_eq!(count, 1);
-
-        let size = handle.metadata_size(meta_ids[0]);
-        if size == 0 {
-            debug!("Found zero-sized Exif metadata block");
-            return Ok(None);
-        }
-
-        let result = handle.metadata(meta_ids[0])?;
-        assert_eq!(result.len(), size);
-        debug!(
-            "Got {exif_block_size} of EXIF data",
-            exif_block_size = pretty_bytes(result.len() as _).to_string()
-        );
-
-        return Ok(Some(ExifDataBlock::new_from_heic(result)?));
     }
 }
 

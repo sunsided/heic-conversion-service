@@ -1,4 +1,5 @@
 use crate::converter::{DecodingOptions, Encoder, ExifMetadata, JpegEncoder};
+use crate::exif::HeifExif;
 use crate::services::heif_api::{
     convert_server::Convert, ConvertToJpegRequest, ConvertToJpegResponse,
 };
@@ -55,12 +56,14 @@ impl Convert for ConvertService {
         let has_alpha = handle.has_alpha_channel();
         let mut decoding_options = DecodingOptions::default();
 
+        let heif_exif = HeifExif::default();
+
         let encoder = JpegEncoder::new(request.quality);
-        encoder.update_decoding_options(&handle, &mut decoding_options);
+        encoder.update_decoding_options(&handle, &mut decoding_options, &heif_exif);
 
         // TODO: Add this to the info endpoint.
         // TODO: Support XMP and MPEG-7
-        self.parse_and_trace_log_exif(&handle, &encoder)?;
+        self.parse_and_trace_log_exif(&handle, &heif_exif)?;
 
         // TODO: Optionally rotate the image.
         // TODO: Optionally resize the image.
@@ -85,7 +88,7 @@ impl Convert for ConvertService {
             duration = humantime::format_duration(decoding_duration)
         );
 
-        let bytes = match encoder.encode_to_bytes(&handle, &image) {
+        let bytes = match encoder.encode_to_bytes(&handle, &image, &heif_exif) {
             Ok(handle) => handle,
             Err(_e) => return Err(Status::internal("Unable to encode the image")), // TODO: Be more specific about the error
         };
@@ -118,11 +121,11 @@ impl ConvertService {
     fn parse_and_trace_log_exif(
         &self,
         handle: &ImageHandle,
-        encoder: &JpegEncoder,
+        heif_exif: &HeifExif,
     ) -> Result<(), Status> {
         let exifreader = exif::Reader::new();
 
-        let exif_data_block = match encoder.get_exif_metadata(&handle) {
+        let exif_data_block = match heif_exif.get_exif_metadata(&handle) {
             Ok(Some(block)) => block,
             Ok(None) => return Ok(()),
             Err(_e) => return Err(Status::internal("Unable to read EXIF from handle")),
